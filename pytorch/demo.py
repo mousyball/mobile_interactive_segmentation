@@ -14,21 +14,6 @@ from core.model_controller import InteractiveController
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-'''
-TODO:
-* init
-* argparser
-* annotator
-* benchmark
-* IO
-  * UI
-  * inference (for integration)
----
-crop = [
-  [363, 13],
-  [499, 343]
-]
-'''
 
 def parse_args():
     parser = argparse.ArgumentParser()

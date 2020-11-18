@@ -87,7 +87,10 @@ def main_clean():
     cfg = init(args)
     controller = InteractiveController(**cfg)
 
-    img_path = './fbrs/images/sheep.jpg'
+    img_path = './images/sheep.jpg'
+    if not os.path.isfile(img_path):
+        raise FileNotFoundError(f"{img_path}")
+
     img = cv2.imread(img_path, -1)
     _, _, channel = img.shape
     assert channel == 3, "Channel of input image is not 3."

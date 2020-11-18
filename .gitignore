@@ -1,4 +1,6 @@
 # Custom
+## model
+*.pth
 ## dev
 .vscode
 .env

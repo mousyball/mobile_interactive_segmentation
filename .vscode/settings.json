@@ -1,0 +1,8 @@
+{
+    "python.autoComplete.extraPaths": [
+        "./pytorch"
+    ],
+    "python.analysis.extraPaths": [
+        "./pytorch"
+    ],
+}

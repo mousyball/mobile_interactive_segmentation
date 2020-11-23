@@ -64,6 +64,42 @@ def load_hrnet_is_model(state_dict, device, backbone='auto', width=48, ocr_width
     return model
 
 
+def load_deeplab_is_model(state_dict, device, backbone='auto', deeplab_ch=128, aspp_dropout=0.2,
+                          cpu_dist_maps=False, norm_radius=260):
+    if backbone == 'auto':
+        num_backbone_params = len([x for x in state_dict.keys()
+                                   if 'feature_extractor.backbone' in x and not('num_batches_tracked' in x)])
+
+        if num_backbone_params <= 181:
+            backbone = 'resnet34'
+        elif num_backbone_params <= 276:
+            backbone = 'resnet50'
+        elif num_backbone_params <= 531:
+            backbone = 'resnet101'
+        else:
+            raise NotImplementedError('Unknown backbone')
+
+        if 'aspp_dropout' in state_dict:
+            aspp_dropout = float(state_dict['aspp_dropout'].cpu().numpy())
+        else:
+            aspp_project_weight = [v for k, v in state_dict.items() if 'aspp.project.0.weight' in k][0]
+            deeplab_ch = aspp_project_weight.size(0)
+            if deeplab_ch == 256:
+                aspp_dropout = 0.5
+
+    model = get_deeplab_model(backbone=backbone, deeplab_ch=deeplab_ch,
+                              aspp_dropout=aspp_dropout, cpu_dist_maps=cpu_dist_maps,
+                              norm_radius=norm_radius)
+
+    model.load_state_dict(state_dict, strict=False)
+    for param in model.parameters():
+        param.requires_grad = False
+    model.to(device)
+    model.eval()
+
+    return model
+
+
 def get_iou(gt_mask, pred_mask, ignore_label=-1):
     ignore_gt_mask_inv = gt_mask != ignore_label
     obj_gt_mask = gt_mask == 1

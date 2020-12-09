@@ -12,6 +12,7 @@ from easydict import EasyDict as edict
 from core.model_controller import ModelHandler
 from core.utils.visualize_helpers import overlay_masks
 
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -19,24 +20,29 @@ logging.basicConfig(level=logging.INFO)
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-img', '--image', type=str,
+    parser.add_argument('-img', '--image',
+                        type=str,
                         default='./images/sheep.jpg',
                         help='Input image')
 
-    parser.add_argument('--checkpoint', type=str,
+    parser.add_argument('--checkpoint',
+                        type=str,
                         default='./weights/hrnet32_ocr128_lvis.pth',
-                        help='The path to the checkpoint. '
-                             'This can be a relative path (relative to cfg.INTERACTIVE_MODELS_PATH) '
-                             'or an absolute path. The file extension can be omitted.')
+                        help='The path to the checkpoint.')
 
-    parser.add_argument('--gpu_id', type=int, default=0,
+    parser.add_argument('--gpu_id',
+                        type=int,
+                        default=0,
                         help='Id of GPU to use.')
 
-    parser.add_argument('-vis', '--visualize', action='store_true',
+    parser.add_argument('-vis', '--visualize',
+                        action='store_true',
                         default=False,
                         help='Visualize output')
 
-    parser.add_argument('--cfg', type=str, default="config.yml",
+    parser.add_argument('--cfg',
+                        type=str,
+                        default="config.yml",
                         help='The path to the config file.')
 
     return parser.parse_args()

@@ -2,17 +2,15 @@ import argparse
 import logging
 import os
 import random
+from glob import glob
 from pathlib import Path
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
+from core.model_controller import ModelHandler
+from easydict import EasyDict as edict
 from PIL import Image
-
-from core.isegm.inference import utils
-from core.model_controller import InteractiveController
-from glob import glob
 
 
 logger = logging.getLogger(__name__)
@@ -21,9 +19,8 @@ logging.basicConfig(level=logging.INFO)
 random.seed(878)
 
 
-#Forbidden  Key: QSFKL
 class Annotator(object):
-    def __init__(self, img_path, model,
+    def __init__(self, img_path,
                  img_list=None,
                  controller=None,
                  predictor_params=None,
@@ -31,20 +28,33 @@ class Annotator(object):
         assert predictor_params is not None, "Predictor parameters is None."
         assert controller is not None, "Controller is None."
 
-        self.model, self.save_path = model, save_path
+        self.save_path = save_path
         self.file = Path(img_path).name
-        self.img = np.array(Image.open(img_path))
+        self.img = self._load_image(img_path)
         self.clicks = np.empty([0,3],dtype=np.int64)
         self.pred = np.zeros(self.img.shape[:2],dtype=np.uint8)
         self.merge =  self.__gene_merge(self.pred, self.img, self.clicks)
         self.predictor_params = predictor_params
 
         self.controller = controller
-        self.controller.set_image(self.img)
+        self.controller.setup(self.img, self.predictor_params)
         self.img_list = [img_path] if img_list is None else img_list
         self.img_cnt = 0
 
-    def __gene_merge(self,pred,img,clicks,r=9,cb=2,b=2,if_first=True):
+    @staticmethod
+    def _load_image(img_path):
+        if not os.path.isfile(img_path):
+            raise FileNotFoundError(f"{img_path}")
+
+        image = cv2.imread(img_path, -1)
+        _, _, channel = image.shape
+        assert channel == 3, "Channel of input image is not 3."
+        # NOTE: image format is RGB
+        image = cv2.cvtColor(image,
+                             cv2.COLOR_BGR2RGB)
+        return image
+
+    def __gene_merge(self,pred,img,clicks,r=3,cb=1,b=1,if_first=True):
         pred_mask=cv2.merge([pred*255,pred*255,np.zeros_like(pred)])
         result= np.uint8(np.clip(img*0.7+pred_mask*0.3,0,255))
         if b>0:
@@ -66,12 +76,12 @@ class Annotator(object):
         self.pred = np.zeros(self.img.shape[:2],dtype=np.uint8)
         self.merge =  self.__gene_merge(self.pred, self.img, self.clicks)
 
-        self.controller.set_image(self.img)
-        self.controller.reset_last_object(self.predictor_params)
+        self.controller.setup(self.img, self.predictor_params)
         self.__update()
 
     def __predict(self):
-        self.pred = (self.controller.current_object_prob > 0.5).astype(np.uint8) * 255
+        prob = self.controller.inference()
+        self.pred = (prob > 0.5).astype(np.uint8) * 255
         self.merge =  self.__gene_merge(self.pred, self.img, self.clicks)
         self.__update()
 
@@ -103,13 +113,11 @@ class Annotator(object):
             else:
                 self.__reset()
         elif event.key=='ctrl+r':
-            self.controller.reset_last_object(self.predictor_params)
             self.__reset()
         elif event.key=='escape':
             plt.close()
         elif event.key=='enter':
             if self.save_path is not None:
-                #Image.fromarray(self.pred*255).save(self.save_path)
                 Image.fromarray(self.pred).save(self.save_path)
                 print('save mask in [{}]!'.format(self.save_path))
             plt.close()
@@ -140,75 +148,100 @@ class Annotator(object):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Annotator")
-    parser.add_argument('--checkpoint', type=str,
+    parser.add_argument('--checkpoint',
+                        type=str,
                         default='./weights/hrnet32_ocr128_lvis.pth',
-                        help='The path to the checkpoint. '
-                             'This can be a relative path (relative to cfg.INTERACTIVE_MODELS_PATH) '
-                             'or an absolute path. The file extension can be omitted.')
-    parser.add_argument('--gpu_id', type=int, default=0,
+                        help='The path to the checkpoint.')
+    parser.add_argument('--gpu_id',
+                        type=int,
+                        default=0,
                         help='Id of GPU to use.')
 
-    parser.add_argument('--mode', type=str, default='f-BRS-B',
+    parser.add_argument('--mode',
+                        type=str,
+                        default='f-BRS-B',
                         help='f-BRS mode.')
 
-    parser.add_argument('-vis', '--visualize', action='store_true',
+    parser.add_argument('-vis', '--visualize',
+                        action='store_true',
                         default=False,
                         help='Visualize output')
-    parser.add_argument('--cfg', type=str, default="config.yml",
+
+    parser.add_argument('--cfg',
+                        type=str,
+                        default="config.yml",
                         help='The path to the config file.')
-    parser.add_argument('--input', type=str, default='test.jpg', help='input image')
-    parser.add_argument('--output', type=str, default='test_mask.png', help='output mask')
+
+    parser.add_argument('--input',
+                        type=str,
+                        default='test.jpg',
+                        help='input image')
+
+    parser.add_argument('--output',
+                        type=str,
+                        default='test_mask.png',
+                        help='output mask')
 
     return parser.parse_args()
 
 
 def init(args):
-    MAX_CLICKS = 20
+    # Parameters
+    EVAL_MAX_CLICKS = 20
     MODEL_THRESH = 0.5
-
-    device = torch.device("cuda:"+str(args.gpu_id)
-                          if torch.cuda.is_available()
-                          else "cpu")
-
-    if not os.path.isfile(args.checkpoint):
-        raise FileNotFoundError(f"{args.checkpoint}")
-
-    logger.info("Loading model...")
-    model = utils.load_is_model(args.checkpoint, device)
-    logger.info("Loading model is finished.")
-
-    # NOTE: Parameters
-    params = {
-        'predictor_params': {
-            'net_clicks_limit': MAX_CLICKS
-        }
-    }
 
     # NOTE: image_list to be verified
     img_list = glob(r'./images/*')
 
-    ret_dict = dict(
-        net=model,
-        device=device,
-        predictor_params=params,
-        prob_thresh=MODEL_THRESH,
-        img_list=img_list
-    )
-    return ret_dict
+    # NOTE: Predictor Parameters
+    params = {
+        'predictor_params': {
+            'net_clicks_limit': EVAL_MAX_CLICKS
+        }
+    }
 
+    # Mocking Input
+    click_list = [
+        [487, 75, 1],
+        [430, 200, 1],
+        [450, 200, 0],
+        [435, 270, 1],
+        [479, 44, 1],
+        [396, 96, 1]
+    ]
+
+    # Package the config
+    cfg = edict({
+        'image': './images/bear.jpg',
+        'img_list': img_list,
+        'checkpoint': args.checkpoint,
+        'gpu_id': args.gpu_id,
+        'params': params,
+        'click_list': click_list,
+        'prob_thresh': MODEL_THRESH
+    })
+
+    return cfg
 
 if __name__ == "__main__":
+    # Prepare config
     args = parse_args()
     cfg = init(args)
-    controller = InteractiveController(**cfg)
-    img_path = './images/bear.jpg'
 
+    # Instantiate the model handler
+    controller = ModelHandler(
+        model_path=cfg.checkpoint,
+        gpu_id=cfg.gpu_id,
+        predictor_params=cfg.params,
+        prob_thresh=cfg.prob_thresh
+    )
+
+    # Interactive UI
     anno = Annotator(
-        img_path=img_path,
-        img_list=cfg['img_list'],
-        model=cfg['net'],
+        img_path=cfg.image,
+        img_list=cfg.img_list,
         controller=controller,
-        predictor_params=cfg['predictor_params'],
+        predictor_params=cfg.params,
         save_path="./results/annotated_result.jpg"
     )
 

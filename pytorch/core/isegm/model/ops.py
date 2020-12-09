@@ -67,10 +67,19 @@ class DistMaps(nn.Module):
             coords.div_(self.norm_radius * self.spatial_scale)
             coords.mul_(coords)
 
-            coords[:, 0] += coords[:, 1]
-            coords = coords[:, :1]
+            # NOTE: ONNX Compatibility
+            if False:
+                coords[:, 0] += coords[:, 1]
+                coords = coords[:, :1]
+                coords[invalid_points, :, :, :] = 1e6
+            else:
+                a = torch.index_select(coords, 1, torch.tensor([0], device=points.device))
+                b = torch.index_select(coords, 1, torch.tensor([1], device=points.device))
 
-            coords[invalid_points, :, :, :] = 1e6
+                coords = a + b
+
+                idx = torch.nonzero((invalid_points == True), as_tuple=False)
+                torch.index_fill(coords, 0, idx.squeeze(), 1e6)
 
             coords = coords.view(-1, num_points, 1, rows, cols)
             coords = coords.min(dim=1)[0]  # -> (bs * num_masks * 2) x 1 x h x w

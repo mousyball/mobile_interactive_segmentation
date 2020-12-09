@@ -1,6 +1,7 @@
 # Custom
 ## model
 *.pth
+*.onnx
 ## dev
 .vscode
 .env

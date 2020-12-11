@@ -6,7 +6,7 @@
   * [ ] pipenv
   * [ ] docker
 * [x] ONNX
-* [x]] Code Refactoring
+* [x] Code Refactoring
 
 ## Installation
 

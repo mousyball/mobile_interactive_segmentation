@@ -1,0 +1,5 @@
+# Base yaml
+
+EVAL:
+  MAX_CLICKS: 20
+  OUTPUT_PROBABILITY_THRESH: 0.5

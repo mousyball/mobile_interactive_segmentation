@@ -1,0 +1,6 @@
+_BASE_: "./base.yaml"
+
+EVAL:
+  MAX_CLICKS: 20
+  OUTPUT_PROBABILITY_THRESH: 0.5
+  INPUT_SIZE: [320, 480]

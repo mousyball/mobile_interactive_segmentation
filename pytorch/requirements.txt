@@ -7,3 +7,5 @@ scipy
 onnx
 onnxruntime
 fvcore
+easydict
+scikit-image

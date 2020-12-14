@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+opencv-python-headless = "*"
+torch = ">=1.4.0"
+torchvision = ">=0.5.0"
+matplotlib = "*"
+scipy = "*"
+onnx = "*"
+onnxruntime = "*"
+fvcore = "*"
+Cython = "*"
+easydict = "*"
+scikit-image = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.7"

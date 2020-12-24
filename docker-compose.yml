@@ -1,0 +1,15 @@
+version: '3'
+services:
+  pytorch:
+    build: ./pytorch
+    volumes:
+      - ./pytorch/:/root/moblie_is/
+    working_dir: /root/moblie_is/
+    stdin_open: true
+    tty: true
+    container_name: dc_pytorch
+  app:
+    build: ./app
+    stdin_open: true
+    tty: true
+    container_name: dc_android

@@ -1,17 +1,25 @@
 FROM ubuntu:20.04
 LABEL maintainer="Mo1cibo"
 
+# Setup working directory
+COPY . /root/moblie_is/
 WORKDIR /root/moblie_is/
-#VOLUME ./pytorch/ /root/moblie_is/
 
 # Initial update
 RUN apt update && apt install -y --no-install-recommends build-essential
 
+# Essential packages for Python3
+RUN apt install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev
+# [Optional] Install tkinter if visualization is needed.
+# RUN apt install -y --no-install-recommends \
+#     python3-tk
+
 # Other packages
 RUN apt install -y --no-install-recommends \
-    vim \
-    python3 \
-    python3-pip
+    vim
 
 # Packages for pyenv
 RUN DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
@@ -24,14 +32,9 @@ RUN curl https://pyenv.run | bash
 RUN pip3 install pipenv
 
 # Download pytorch model
-COPY . /root/moblie_is
-WORKDIR /root/moblie_is/weights
-# RUN echo $PWD && ls -a
-# RUN cd $PWD && ls -a ..
-# RUN ls
+WORKDIR /root/moblie_is/weights/
 RUN bash gdown_model.sh
 
 # Install python packages by pipenv
+WORKDIR /root/moblie_is/
 RUN pipenv install
-
-#WORKDIR /root/moblie_is/weights

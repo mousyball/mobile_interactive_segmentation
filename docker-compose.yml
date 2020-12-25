@@ -2,14 +2,26 @@ version: '3'
 services:
   pytorch:
     build: ./pytorch
+    environment:
+      - DISPLAY=$DISPLAY
     volumes:
       - ./pytorch/:/root/moblie_is/
+      - $HOME/.Xauthority:/root/.Xauthority
+      - $HOME/.bashrc:/root/.bashrc:ro
+    network_mode: host
     working_dir: /root/moblie_is/
+    hostname: Docker
     stdin_open: true
     tty: true
     container_name: dc_pytorch
   app:
     build: ./app
+    environment:
+      - DISPLAY=$DISPLAY
+    volumes:
+      - $HOME/.Xauthority:/root/.Xauthority
+    network_mode: host
+    hostname: Docker
     stdin_open: true
     tty: true
     container_name: dc_android
